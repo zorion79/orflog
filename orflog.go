@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	log "github.com/go-pkgz/lgr"
 )
 
 // Service create engine to collects logs from orf
@@ -186,6 +187,12 @@ func (s *Service) createOrfRecords(stringsChan <-chan string) <-chan Orf {
 			}
 		}()
 	}
+
+	go func() {
+		wg.Wait()
+		close(result)
+	}()
+
 	return result
 }
 
