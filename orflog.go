@@ -53,6 +53,13 @@ func (s *Service) GetLogs() (res []Orf) {
 	return res
 }
 
+// GetLogsChan return channel with orf logs
+func (s *Service) GetLogsChan() <-chan Orf {
+	orfLogFiles := s.getLastModifiedLogFiles()
+	stringsChan := s.getAllStringsFromLogFiles(orfLogFiles)
+	return s.createOrfRecords(stringsChan)
+}
+
 func (s *Service) getLastModifiedLogFiles() <-chan string {
 	result := make(chan string)
 
