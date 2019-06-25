@@ -2,7 +2,6 @@ package orflog
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -175,7 +174,8 @@ func (s *Service) createOrfRecords(stringsChan <-chan string) <-chan Orf {
 							Recipients:     splitString[8],
 							Message:        message.String(),
 						}
-						orf.HashString = fmt.Sprintf("%x", orf.OrfHash())
+
+						orf.Hash()
 
 						if strings.Contains(orf.Recipients, ";") {
 							splitRecipients := strings.Split(orf.Recipients, ";")

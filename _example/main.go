@@ -64,5 +64,6 @@ func main() {
 	service := orflog.NewService(options)
 
 	logs := service.GetLogs()
-	fmt.Printf("len of logs=%d", len(logs))
+	fmt.Printf("[DEBUG] len of logs=%d\n", len(logs))
+	fmt.Printf("[DEBUG] first element=%+v\n", logs[0])
 }
