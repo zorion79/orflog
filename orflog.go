@@ -18,16 +18,16 @@ type Service struct {
 
 // Opts collects parameters to initialize Service
 type Opts struct {
-	LogPaths                        []string // directory path `\\orf01\ORF\`
-	LogSuffix                       string   // .log
-	GetAllStringsGoroutinesCount    int      // 40 is ok
-	CreateOrfRecordsGoroutinesCount int      // 10 000 is ok
-	OrfLine                         string   // SMTPSVC
+	LogPaths                        []string `long:"log-paths" env:"LOG_PATHS" description:"path to log files" env-delim:","`
+	LogSuffix                       string   `long:"log-suffix" env:"LOG_SUFFIX" default:".log" description:"log file extension"`
+	GetAllStringsGoroutinesCount    int      `long:"goroutines-all-strings" env:"GOROUTINES_ALL_STRINGS" default:"40" description:"max goroutines for get all strings"`
+	CreateOrfRecordsGoroutinesCount int      `long:"goroutines-create-orf-records" env:"GOROUTINES_CREATE_ORF_RECORDS" default:"10000" description:"max goroutines for create orf records"`
+	OrfLine                         string   `long:"orfline" env:"ORFLINE" default:"SMTPSVC" description:"search start word in log line"`
 	TimeRange                       struct {
-		Years  int
-		Months int
-		Days   int
-	}
+		Years  int `long:"years" env:"YEARS" default:"0" description:"years time range for logs"`
+		Months int `long:"months" env:"MONTHS" default:"1" description:"months time range for logs"`
+		Days   int `long:"days" env:"DAYS" default:"0" description:"days time range for logs"`
+	} `group:"time-range" namespace:"time-range" env-namespace:"TIME_RANGE"`
 }
 
 const (
