@@ -30,11 +30,40 @@ type Opts struct {
 	}
 }
 
+const (
+	logSuffix                 = ".log"
+	allStringsGoroutinesCount = 40
+	orfRecordsGoroutinesCount = 10000
+	orfLine                   = "SMTPSVC"
+)
+
 // NewService initialize everything
 func NewService(opts Opts) *Service {
-	return &Service{
+	res := &Service{
 		opts,
 	}
+
+	if res.LogSuffix == "" {
+		res.LogSuffix = logSuffix
+	}
+
+	if res.GetAllStringsGoroutinesCount == 0 {
+		res.GetAllStringsGoroutinesCount = allStringsGoroutinesCount
+	}
+
+	if res.CreateOrfRecordsGoroutinesCount == 0 {
+		res.CreateOrfRecordsGoroutinesCount = orfRecordsGoroutinesCount
+	}
+
+	if res.OrfLine == "" {
+		res.OrfLine = orfLine
+	}
+
+	if res.TimeRange.Years == 0 && res.TimeRange.Months == 0 && res.TimeRange.Days == 0 {
+		res.TimeRange.Months = 1
+	}
+
+	return res
 }
 
 // GetLogs return orf logs

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -64,6 +63,6 @@ func main() {
 	service := orflog.NewService(options)
 
 	logs := service.GetLogs()
-	fmt.Printf("[DEBUG] len of logs=%d\n", len(logs))
-	fmt.Printf("[DEBUG] first element=%+v\n", logs[0])
+	log.Printf("[DEBUG] len of logs=%d\n", len(logs))
+	log.Printf("[DEBUG] first element=%+v\n", logs[0])
 }
