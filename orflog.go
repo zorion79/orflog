@@ -2,8 +2,6 @@ package orflog
 
 import (
 	"bytes"
-	"crypto/md5"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -177,7 +175,7 @@ func (s *Service) createOrfRecords(stringsChan <-chan string) <-chan Orf {
 							Recipients:     splitString[8],
 							Message:        message.String(),
 						}
-						orf.HashString = fmt.Sprintf("%x", orfHash(orf))
+						orf.HashString = fmt.Sprintf("%x", orf.OrfHash())
 
 						if strings.Contains(orf.Recipients, ";") {
 							splitRecipients := strings.Split(orf.Recipients, ";")
@@ -227,9 +225,4 @@ func filterPoint(s string) string {
 	default:
 		return s
 	}
-}
-
-func orfHash(o Orf) [16]byte {
-	jsonBytes, _ := json.Marshal(o)
-	return md5.Sum(jsonBytes)
 }
