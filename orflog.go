@@ -2,6 +2,8 @@ package orflog
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -14,45 +16,52 @@ import (
 // Service create engine to collects logs from orf
 type Service struct {
 	Opts
+
+	sync.WaitGroup
+
+	logMapAll struct {
+		sync.RWMutex
+		m map[string]*Orf
+	}
+
+	logMapOld struct {
+		sync.RWMutex
+		m map[string]*Orf
+	}
+
+	newLogCh    chan *Orf
+	removeLogCh chan *Orf
+
+	time time.Time
 }
 
 // Opts collects parameters to initialize Service
 type Opts struct {
-	LogPaths                        []string `long:"log-paths" env:"LOG_PATHS" description:"path to log files" env-delim:","`
-	LogSuffix                       string   `long:"log-suffix" env:"LOG_SUFFIX" default:".log" description:"log file extension"`
-	GetAllStringsGoroutinesCount    int      `long:"goroutines-all-strings" env:"GOROUTINES_ALL_STRINGS" default:"40" description:"max goroutines for get all strings"`
-	CreateOrfRecordsGoroutinesCount int      `long:"goroutines-create-orf-records" env:"GOROUTINES_CREATE_ORF_RECORDS" default:"10000" description:"max goroutines for create orf records"`
-	OrfLine                         string   `long:"orfline" env:"ORFLINE" default:"SMTPSVC" description:"search start word in log line"`
-	TimeRange                       struct {
+	LogPaths  []string      `long:"log-paths" env:"LOG_PATHS" description:"path to log files" env-delim:","`
+	LogSuffix string        `long:"log-suffix" env:"LOG_SUFFIX" default:".log" description:"log file extension"`
+	OrfLine   string        `long:"orfline" env:"ORFLINE" default:"SMTPSVC" description:"search start word in log line"`
+	SleepTime time.Duration `long:"sleep-time" env:"SLEEP_TIME" default:"1m" description:"sleep time after every run"`
+	TimeRange struct {
 		Years  int `long:"years" env:"YEARS" default:"0" description:"years time range for logs"`
-		Months int `long:"months" env:"MONTHS" default:"1" description:"months time range for logs"`
+		Months int `long:"months" env:"MONTHS" default:"0" description:"months time range for logs"`
 		Days   int `long:"days" env:"DAYS" default:"0" description:"days time range for logs"`
 	} `group:"time-range" namespace:"time-range" env-namespace:"TIME_RANGE"`
 }
 
 const (
-	logSuffix                 = ".log"
-	allStringsGoroutinesCount = 40
-	orfRecordsGoroutinesCount = 10000
-	orfLine                   = "SMTPSVC"
+	logSuffix = ".log"
+	orfLine   = "SMTPSVC"
+	sleepTime = 10 * time.Second
 )
 
 // NewService initialize everything
 func NewService(opts Opts) *Service {
 	res := &Service{
-		opts,
+		Opts: opts,
 	}
 
 	if res.LogSuffix == "" {
 		res.LogSuffix = logSuffix
-	}
-
-	if res.GetAllStringsGoroutinesCount == 0 {
-		res.GetAllStringsGoroutinesCount = allStringsGoroutinesCount
-	}
-
-	if res.CreateOrfRecordsGoroutinesCount == 0 {
-		res.CreateOrfRecordsGoroutinesCount = orfRecordsGoroutinesCount
 	}
 
 	if res.OrfLine == "" {
@@ -60,59 +69,71 @@ func NewService(opts Opts) *Service {
 	}
 
 	if res.TimeRange.Years == 0 && res.TimeRange.Months == 0 && res.TimeRange.Days == 0 {
-		res.TimeRange.Months = 1
+		res.TimeRange.Days = 1
 	}
+
+	if res.SleepTime.Seconds() < 1 {
+		res.SleepTime = sleepTime
+	}
+
+	res.newLogCh = make(chan *Orf)
+	res.removeLogCh = make(chan *Orf)
+	res.logMapAll.m = make(map[string]*Orf)
 
 	return res
 }
 
-// GetLogs return orf logs
-func (s *Service) GetLogs() (res []Orf) {
-	orfLogFiles := s.getLastModifiedLogFiles()
-	stringsChan := s.getAllStringsFromLogFiles(orfLogFiles)
-	recordsChan := s.createOrfRecords(stringsChan)
-
-	for orf := range recordsChan {
-		res = append(res, orf)
+// Run service loop
+func (s *Service) Run(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("[WARN] terminate service")
+			s.closeChannels()
+			return
+		default:
+			logFiles := s.getLastModifiedLogFiles()
+			allStringsCh := s.getAllStringsFromLogFiles(logFiles)
+			s.logMapOld.m = make(map[string]*Orf)
+			s.createOrfRecords(allStringsCh)
+			s.removeOldRecords()
+			time.Sleep(s.SleepTime)
+		}
 	}
-
-	return res
 }
 
-// GetLogsChan return channel with orf logs
-func (s *Service) GetLogsChan() <-chan Orf {
-	orfLogFiles := s.getLastModifiedLogFiles()
-	stringsChan := s.getAllStringsFromLogFiles(orfLogFiles)
-	return s.createOrfRecords(stringsChan)
+func (s *Service) Channel() (new <-chan *Orf, remove <-chan *Orf) {
+	return s.newLogCh, s.removeLogCh
+}
+
+func (s *Service) closeChannels() {
+	close(s.newLogCh)
+	close(s.removeLogCh)
 }
 
 func (s *Service) getLastModifiedLogFiles() <-chan string {
 	result := make(chan string)
-
-	t := time.Now().AddDate(-s.TimeRange.Years, -s.TimeRange.Months, -s.TimeRange.Days)
-
+	s.time = time.Now().AddDate(-s.TimeRange.Years, -s.TimeRange.Months, -s.TimeRange.Days)
+	log.Printf("[DEBUG] time: %v, len of map=%d", s.time, len(s.logMapAll.m))
 	var wg sync.WaitGroup
-	wg.Add(len(s.LogPaths))
-
-	for _, dir := range s.LogPaths {
-		go func(dir string) {
+	wg.Add(1)
+	go func() {
+		for _, dir := range s.LogPaths {
 			files, err := ioutil.ReadDir(dir)
 			if err != nil {
 				log.Printf("[WARN] could not take files from directory %s: %v", dir, err)
-				wg.Done()
-				return
+				continue
 			}
 
-			fileName := ""
 			for _, file := range files {
-				if !file.IsDir() && strings.HasSuffix(file.Name(), s.LogSuffix) && file.ModTime().After(t) {
-					fileName = file.Name()
+				if !file.IsDir() && strings.HasSuffix(file.Name(), s.LogSuffix) && file.ModTime().After(s.time) {
+					fileName := file.Name()
 					result <- filepath.Join(dir, fileName)
 				}
 			}
-			wg.Done()
-		}(dir)
-	}
+		}
+		wg.Done()
+	}()
 
 	go func() {
 		wg.Wait()
@@ -123,34 +144,35 @@ func (s *Service) getLastModifiedLogFiles() <-chan string {
 }
 
 func (s *Service) getAllStringsFromLogFiles(fileNames <-chan string) <-chan string {
+	//log.Printf("[DEBUG] %s", fileName)
 	result := make(chan string)
 
 	var wg sync.WaitGroup
-	for i := 0; i < s.GetAllStringsGoroutinesCount; i++ {
-		wg.Add(1)
-		go func() {
-			for {
-				select {
-				case fileName, ok := <-fileNames:
-					if !ok {
-						wg.Done()
-						return
-					}
-					b, err := ioutil.ReadFile(fileName)
-					if err != nil {
-						log.Printf("[WARN] could not read file %s: %v", fileName, err)
-						return
-					}
+	//for i := 0; i < s.GetAllStringsGoroutinesCount; i++ {
+	wg.Add(1)
+	go func() {
+		for {
+			select {
+			case fileName, ok := <-fileNames:
+				if !ok {
+					wg.Done()
+					return
+				}
+				b, err := ioutil.ReadFile(fileName)
+				if err != nil {
+					log.Printf("[WARN] could not read file %s: %v", fileName, err)
+					continue
+				}
 
-					lines := strings.Split(string(b), "\n")
+				lines := strings.Split(string(b), "\n")
 
-					for _, line := range lines {
-						result <- line
-					}
+				for _, line := range lines {
+					result <- line
 				}
 			}
-		}()
-	}
+		}
+	}()
+	//}
 
 	go func() {
 		wg.Wait()
@@ -160,74 +182,99 @@ func (s *Service) getAllStringsFromLogFiles(fileNames <-chan string) <-chan stri
 	return result
 }
 
-func (s *Service) createOrfRecords(stringsChan <-chan string) <-chan Orf {
-	result := make(chan Orf)
+func (s *Service) createOrfRecords(stringsChan <-chan string) {
+	for {
+		select {
+		case line, ok := <-stringsChan:
+			if !ok {
+				return
+			}
+			if strings.Contains(line, s.OrfLine) {
+				splitString := strings.Split(line, " ")
 
-	var wg sync.WaitGroup
+				messageFromSplit := splitString[12:]
 
-	for i := 0; i < s.CreateOrfRecordsGoroutinesCount; i++ {
-		wg.Add(1)
-		go func() {
-			for {
-				select {
-				case line, ok := <-stringsChan:
-					if !ok {
-						wg.Done()
-						return
-					}
-					if strings.Contains(line, s.OrfLine) {
-						splitString := strings.Split(line, " ")
-
-						messageFromSplit := splitString[12:]
-
-						var message bytes.Buffer
-						if len(messageFromSplit) != 0 {
-							for _, msg := range messageFromSplit {
-								message.WriteString(msg + " ")
-							}
-						}
-
-						const timeFormat = "2006-01-02T15:04:05"
-						timeFromSplit := splitString[1]
-						t, err := time.Parse(timeFormat, timeFromSplit)
-						if err != nil {
-							log.Printf("[WARN] could not parce time %v: %v", timeFromSplit, err)
-						}
-
-						orf := Orf{
-							Time:           t,
-							Action:         ifReject(splitString[4]),
-							FilteringPoint: filterPoint(splitString[5]),
-							RelatedIP:      splitString[6],
-							Sender:         splitString[7],
-							Recipients:     splitString[8],
-							Message:        message.String(),
-						}
-
-						orf.Hash()
-
-						if strings.Contains(orf.Recipients, ";") {
-							splitRecipients := strings.Split(orf.Recipients, ";")
-
-							for _, recipient := range splitRecipients {
-								orf.Recipients = recipient
-								result <- orf
-							}
-						} else {
-							result <- orf
-						}
+				var message bytes.Buffer
+				if len(messageFromSplit) != 0 {
+					for _, msg := range messageFromSplit {
+						message.WriteString(msg + " ")
 					}
 				}
+
+				const timeFormat = "2006-01-02T15:04:05"
+				timeFromSplit := splitString[1]
+				t, err := time.Parse(timeFormat, timeFromSplit)
+				if err != nil {
+					log.Printf("[WARN] could not parse time %v: %v", timeFromSplit, err)
+				}
+
+				orf := &Orf{
+					Time:           t,
+					Action:         ifReject(splitString[4]),
+					FilteringPoint: filterPoint(splitString[5]),
+					RelatedIP:      splitString[6],
+					Sender:         splitString[7],
+					Recipients:     splitString[8],
+					Message:        message.String(),
+				}
+
+				if strings.Contains(orf.Recipients, ";") {
+					splitRecipients := strings.Split(orf.Recipients, ";")
+
+					for _, recipient := range splitRecipients {
+						orf.Recipients = recipient
+
+						s.orfToChan(orf)
+					}
+				} else {
+					s.orfToChan(orf)
+				}
+
 			}
-		}()
+		}
+	}
+}
+
+func (s *Service) orfToChan(orf *Orf) {
+	orf.Hash()
+	if err := s.addRecordToMaps(orf); err != nil {
+		return
+	}
+	s.newLogCh <- orf
+}
+
+func (s *Service) addRecordToMaps(orf *Orf) error {
+	if orf.Time.Before(s.time) {
+		s.logMapOld.Lock()
+		s.logMapOld.m[orf.HashString] = orf
+		s.logMapOld.Unlock()
+		return errors.New("record time before needed time")
 	}
 
-	go func() {
-		wg.Wait()
-		close(result)
-	}()
+	s.logMapAll.RLock()
+	_, ok := s.logMapAll.m[orf.HashString]
+	s.logMapAll.RUnlock()
 
-	return result
+	if ok {
+		return errors.New("this record already in chan")
+	}
+
+	s.logMapAll.Lock()
+	s.logMapAll.m[orf.HashString] = orf
+	s.logMapAll.Unlock()
+
+	return nil
+}
+
+func (s *Service) removeOldRecords() {
+	for h := range s.logMapOld.m {
+		if val, ok := s.logMapAll.m[h]; ok {
+			s.logMapAll.Lock()
+			s.removeLogCh <- val
+			delete(s.logMapAll.m, h)
+			s.logMapAll.Unlock()
+		}
+	}
 }
 
 func ifReject(s string) string {

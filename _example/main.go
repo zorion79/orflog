@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"os"
-	"strconv"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	log "github.com/go-pkgz/lgr"
 	"github.com/zorion79/orflog"
@@ -18,51 +20,39 @@ func main() {
 		logPaths = strings.Split(logPathFromEnv, ",")
 	}
 
-	getAllStringsGoroutinesCount, err := strconv.Atoi(os.Getenv("EXMPL_ORFLOG_GOROUTINECOUNT_STRINGS"))
-	if err != nil {
-		log.Fatalf("could not get env: %v", err)
-	}
-
-	createOrfRecordsGoroutinesCount, err := strconv.Atoi(os.Getenv("EXMPL_ORFLOG_GOROUTINECOUNT_ORFRECORDS"))
-	if err != nil {
-		log.Fatalf("could not get env: %v", err)
-	}
-
-	years, err := strconv.Atoi(os.Getenv("EXMPL_ORFLOG_YEARS"))
-	if err != nil {
-		log.Fatalf("could not get env: %v", err)
-	}
-
-	months, err := strconv.Atoi(os.Getenv("EXMPL_ORFLOG_MOTHS"))
-	if err != nil {
-		log.Fatalf("could not get env: %v", err)
-	}
-
-	days, err := strconv.Atoi(os.Getenv("EXMPL_ORFLOG_DAYS"))
-	if err != nil {
-		log.Fatalf("could not get env: %v", err)
-	}
-
 	options := orflog.Opts{
-		LogPaths:                        logPaths,
-		LogSuffix:                       os.Getenv("EXMPL_ORFLOG_LOGSUFFIX"),
-		GetAllStringsGoroutinesCount:    getAllStringsGoroutinesCount,
-		CreateOrfRecordsGoroutinesCount: createOrfRecordsGoroutinesCount,
-		OrfLine:                         os.Getenv("EXMPL_ORFLOG_ORFLINE"),
-		TimeRange: struct {
-			Years  int
-			Months int
-			Days   int
-		}{
-			Years:  years,
-			Months: months,
-			Days:   days,
-		},
+		LogPaths: logPaths,
 	}
+
+	log.Printf("[DEBUG] opts=%+v", options)
 
 	service := orflog.NewService(options)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { // catch signal and invoke graceful termination
+		stop := make(chan os.Signal, 1)
+		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+		<-stop
+		log.Printf("[WARN] interrupt signal")
+		cancel()
+	}()
+	go service.Run(ctx)
 
-	logs := service.GetLogs()
-	log.Printf("[DEBUG] len of logs=%d\n", len(logs))
-	log.Printf("[DEBUG] first element=%+v\n", logs[0])
+	newLogCh, removeLogCh := service.Channel()
+
+	for {
+		select {
+		case newRecord, ok := <-newLogCh:
+			if !ok {
+				log.Printf("[WARN] program closed")
+				return
+			}
+			log.Printf("new %+v", newRecord)
+
+		case oldRecord, ok := <-removeLogCh:
+			if !ok {
+				log.Printf("[WARN] program closed")
+			}
+			log.Printf("old %+v", oldRecord)
+		}
+	}
 }

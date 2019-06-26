@@ -3,7 +3,7 @@
 This library get records from orf logs.
 
 - Collect records from many servers in one request.
-- Can return slice or channel
+- Return two channels with new and old records
 
 ## Install
 
@@ -12,5 +12,6 @@ This library get records from orf logs.
 ## Usage
 
 - define options `Opts`
+- memory!!!
 - make service `NewService(opts Opts)`
-- get slice `GetLogs() []Orf` or channel `GetLogsChan() <- chan Orf`
+- get channels `s.Channel() (new <-chan *Orf, remove <-chan *Orf)`
