@@ -4,6 +4,9 @@
 
 - run `go run main.go`
 
+First you get slice with one month logs.  
+Next you will get channel with new logs.
+
 ## parameters
 
 No command line parameters nedeed. You need define env variables

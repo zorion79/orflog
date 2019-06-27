@@ -43,7 +43,7 @@ type Opts struct {
 	SleepTime time.Duration `long:"sleep-time" env:"SLEEP_TIME" default:"1m" description:"sleep time after every run"`
 	TimeRange struct {
 		Years  int `long:"years" env:"YEARS" default:"0" description:"years time range for logs"`
-		Months int `long:"months" env:"MONTHS" default:"0" description:"months time range for logs"`
+		Months int `long:"months" env:"MONTHS" default:"1" description:"months time range for logs"`
 		Days   int `long:"days" env:"DAYS" default:"0" description:"days time range for logs"`
 	} `group:"time-range" namespace:"time-range" env-namespace:"TIME_RANGE"`
 }
@@ -69,7 +69,7 @@ func NewService(opts Opts) *Service {
 	}
 
 	if res.TimeRange.Years == 0 && res.TimeRange.Months == 0 && res.TimeRange.Days == 0 {
-		res.TimeRange.Days = 1
+		res.TimeRange.Months = 1
 	}
 
 	if res.SleepTime.Seconds() < 1 {
@@ -100,6 +100,24 @@ func (s *Service) Run(ctx context.Context) {
 			time.Sleep(s.SleepTime)
 		}
 	}
+}
+
+func (s *Service) GetLastMonthLog() []*Orf {
+	res := make([]*Orf, 0)
+	logFiles := s.getLastModifiedLogFiles()
+	allStringsCh := s.getAllStringsFromLogFiles(logFiles)
+	s.logMapOld.m = make(map[string]*Orf)
+	go s.createOrfRecords(allStringsCh)
+	//s.removeOldRecords()
+
+	go func() {
+		for o := range s.newLogCh {
+			res = append(res, o)
+		}
+	}()
+
+	time.Sleep(15 * time.Second)
+	return res
 }
 
 func (s *Service) Channel() (new <-chan *Orf, remove <-chan *Orf) {

@@ -20,6 +20,8 @@ func main() {
 		logPaths = strings.Split(logPathFromEnv, ",")
 	}
 
+
+
 	options := orflog.Opts{
 		LogPaths: logPaths,
 	}
@@ -35,6 +37,10 @@ func main() {
 		log.Printf("[WARN] interrupt signal")
 		cancel()
 	}()
+
+	orfSlice := service.GetLastMonthLog()
+	log.Printf("[DEBUG] len orfSlice = %d", len(orfSlice))
+
 	go service.Run(ctx)
 
 	newLogCh, removeLogCh := service.Channel()
