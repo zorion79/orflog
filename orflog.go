@@ -108,7 +108,6 @@ func (s *Service) GetLastMonthLog() []*Orf {
 	allStringsCh := s.getAllStringsFromLogFiles(logFiles)
 	s.logMapOld.m = make(map[string]*Orf)
 	go s.createOrfRecords(allStringsCh)
-	//s.removeOldRecords()
 
 	go func() {
 		for o := range s.newLogCh {
@@ -162,11 +161,9 @@ func (s *Service) getLastModifiedLogFiles() <-chan string {
 }
 
 func (s *Service) getAllStringsFromLogFiles(fileNames <-chan string) <-chan string {
-	//log.Printf("[DEBUG] %s", fileName)
 	result := make(chan string)
 
 	var wg sync.WaitGroup
-	//for i := 0; i < s.GetAllStringsGoroutinesCount; i++ {
 	wg.Add(1)
 	go func() {
 		for {
@@ -190,7 +187,6 @@ func (s *Service) getAllStringsFromLogFiles(fileNames <-chan string) <-chan stri
 			}
 		}
 	}()
-	//}
 
 	go func() {
 		wg.Wait()
