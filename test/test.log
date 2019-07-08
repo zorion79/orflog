@@ -1,0 +1,1 @@
+SMTPSVC 2019-07-06T10:10:00 2 3 Reject BeforeArrival 10.10.10.10 sender@sender.com first@recipient.com;second@recipient.com 9 10 11 long message

@@ -140,7 +140,7 @@ func (s *Service) getLastModifiedLogFiles() <-chan string {
 		for _, dir := range s.LogPaths {
 			files, err := ioutil.ReadDir(dir)
 			if err != nil {
-				log.Printf("[WARN] could not take files from directory %s: %v", dir, err)
+				log.Printf("[WARN] could not open directory %s: %v", dir, err)
 				continue
 			}
 
