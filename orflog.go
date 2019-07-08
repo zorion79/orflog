@@ -102,6 +102,7 @@ func (s *Service) Run(ctx context.Context) {
 	}
 }
 
+// GetLastMonthLog return records for last month
 func (s *Service) GetLastMonthLog() []*Orf {
 	res := make([]*Orf, 0)
 	logFiles := s.getLastModifiedLogFiles()
@@ -119,6 +120,7 @@ func (s *Service) GetLastMonthLog() []*Orf {
 	return res
 }
 
+// Channel return channels with new and old records
 func (s *Service) Channel() (new <-chan *Orf, remove <-chan *Orf) {
 	return s.newLogCh, s.removeLogCh
 }
