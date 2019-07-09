@@ -240,10 +240,10 @@ func (s *Service) createOrfRecords(stringsChan <-chan string) {
 					for _, recipient := range splitRecipients {
 						orf.Recipients = recipient
 
-						s.orfToChan(orf)
+						s.orfToChan(*orf)
 					}
 				} else {
-					s.orfToChan(orf)
+					s.orfToChan(*orf)
 				}
 
 			}
@@ -251,12 +251,12 @@ func (s *Service) createOrfRecords(stringsChan <-chan string) {
 	}
 }
 
-func (s *Service) orfToChan(orf *Orf) {
+func (s *Service) orfToChan(orf Orf) {
 	orf.Hash()
-	if err := s.addRecordToMaps(orf); err != nil {
+	if err := s.addRecordToMaps(&orf); err != nil {
 		return
 	}
-	s.newLogCh <- orf
+	s.newLogCh <- &orf
 }
 
 func (s *Service) addRecordToMaps(orf *Orf) error {
