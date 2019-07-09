@@ -1,7 +1,7 @@
 package orflog
 
 import (
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec
 	"encoding/json"
 	"fmt"
 	"time"
@@ -22,5 +22,5 @@ type Orf struct {
 // Hash return hash of Orf
 func (o *Orf) Hash() {
 	jsonBytes, _ := json.Marshal(o)
-	o.HashString = fmt.Sprintf("%x", md5.Sum(jsonBytes))
+	o.HashString = fmt.Sprintf("%x", md5.Sum(jsonBytes)) //nolint:gosec
 }

@@ -24,6 +24,7 @@ func TestService_NewService(t *testing.T) {
 
 	newOrfs, _ := svc.Channel()
 	for newOrf := range newOrfs {
+		assert.Equal(t, "sender@sender.com", newOrf.Sender)
 		t.Logf("Orf: %+v", newOrf)
 	}
 }

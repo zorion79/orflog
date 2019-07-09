@@ -168,7 +168,7 @@ func (s *Service) getAllStringsFromLogFiles(fileNames <-chan string) <-chan stri
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		for {
+		for { //nolint:gosimple
 			select {
 			case fileName, ok := <-fileNames:
 				if !ok {
@@ -199,7 +199,7 @@ func (s *Service) getAllStringsFromLogFiles(fileNames <-chan string) <-chan stri
 }
 
 func (s *Service) createOrfRecords(stringsChan <-chan string) {
-	for {
+	for { //nolint:gosimple
 		select {
 		case line, ok := <-stringsChan:
 			if !ok {
