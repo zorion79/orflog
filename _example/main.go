@@ -20,10 +20,17 @@ func main() {
 		logPaths = strings.Split(logPathFromEnv, ",")
 	}
 
-
-
 	options := orflog.Opts{
 		LogPaths: logPaths,
+		TimeRange: struct {
+			Years  int `long:"years" env:"YEARS" default:"0" description:"years time range for logs"`
+			Months int `long:"months" env:"MONTHS" default:"1" description:"months time range for logs"`
+			Days   int `long:"days" env:"DAYS" default:"0" description:"days time range for logs"`
+		}{
+			Years:  0,
+			Months: 1,
+			Days:   0,
+		},
 	}
 
 	log.Printf("[DEBUG] opts=%+v", options)
@@ -38,27 +45,14 @@ func main() {
 		cancel()
 	}()
 
-	orfSlice := service.GetLastMonthLog()
-	log.Printf("[DEBUG] len orfSlice = %d", len(orfSlice))
+	orfs := service.GetLastRecords()
+	log.Printf("Orfs = %d", len(orfs))
 
 	go service.Run(ctx)
 
-	newLogCh, removeLogCh := service.Channel()
+	newLogCh := service.Channel()
 
-	for {
-		select {
-		case newRecord, ok := <-newLogCh:
-			if !ok {
-				log.Printf("[WARN] program closed")
-				return
-			}
-			log.Printf("new %+v", newRecord)
-
-		case oldRecord, ok := <-removeLogCh:
-			if !ok {
-				log.Printf("[WARN] program closed")
-			}
-			log.Printf("old %+v", oldRecord)
-		}
+	for orf := range newLogCh {
+		log.Printf("%+v", orf)
 	}
 }

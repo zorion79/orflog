@@ -22,7 +22,7 @@ func TestService_NewService(t *testing.T) {
 
 	go svc.Run(ctx)
 
-	newOrfs, _ := svc.Channel()
+	newOrfs := svc.Channel()
 	for newOrf := range newOrfs {
 		assert.Equal(t, "sender@sender.com", newOrf.Sender)
 		t.Logf("Orf: %+v", newOrf)
