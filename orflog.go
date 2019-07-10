@@ -181,9 +181,7 @@ func (s *Service) getAllStringsFromLogFiles(fileNames []string) []string {
 
 		lines := strings.Split(string(b), "\n")
 
-		for _, line := range lines {
-			result = append(result, line)
-		}
+		result = append(result, lines...)
 	}
 
 	return result
