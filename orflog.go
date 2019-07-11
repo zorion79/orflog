@@ -81,13 +81,13 @@ func NewService(opts Opts) *Service {
 	res.logMapAll.m = make(map[string]Orf)
 	res.logMapOld.m = make(map[string]Orf)
 
+	res.timeStart = time.Now().AddDate(-res.TimeRange.Years, -res.TimeRange.Months, -res.TimeRange.Days)
+
 	return res
 }
 
 // Run service loop
 func (s *Service) Run(ctx context.Context) {
-	s.timeStart = time.Now().AddDate(-s.TimeRange.Years, -s.TimeRange.Months, -s.TimeRange.Days)
-
 	for {
 		select {
 		case <-ctx.Done():
