@@ -114,7 +114,7 @@ func (s *Service) Run(ctx context.Context) {
 				s.newLogCh <- orf
 			}
 
-			s.timeStart = time.Now().Add(-10 * time.Minute)
+			s.timeStart = time.Now().Add(-24 * time.Hour)
 			time.Sleep(s.SleepTime)
 		}
 	}
@@ -135,7 +135,7 @@ func (s *Service) GetLastRecords() []Orf {
 
 	s.removeOldRecords()
 
-	s.timeStart = time.Now().Add(-10 * time.Minute)
+	s.timeStart = time.Now().Add(-24 * time.Hour)
 	return orfs
 }
 
@@ -159,8 +159,8 @@ func (s *Service) getLastModifiedLogFiles() []string {
 		}
 
 		for _, file := range files {
-			//if !file.IsDir() && strings.HasSuffix(file.Name(), s.LogSuffix) && file.ModTime().After(s.timeStart) {
-			if !file.IsDir() && strings.HasSuffix(file.Name(), s.LogSuffix) && file.ModTime().After(time.Now().Add(-24*time.Hour)) {
+			if !file.IsDir() && strings.HasSuffix(file.Name(), s.LogSuffix) && file.ModTime().After(s.timeStart) {
+				//if !file.IsDir() && strings.HasSuffix(file.Name(), s.LogSuffix) && file.ModTime().After(time.Now().Add(-24*time.Hour)) {
 				fileName := file.Name()
 				result = append(result, filepath.Join(dir, fileName))
 			}
