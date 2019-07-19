@@ -1,4 +1,4 @@
-module github.com/zorion79/orflog/v2
+module github.com/zorion79/orflog/
 
 go 1.12
 
