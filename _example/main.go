@@ -8,7 +8,7 @@ import (
 	"syscall"
 
 	log "github.com/go-pkgz/lgr"
-	"github.com/zorion79/orflog"
+	"github.com/zorion79/orflog/v3"
 )
 
 func main() {
