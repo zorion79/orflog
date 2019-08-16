@@ -211,7 +211,7 @@ func (s *Service) createOrfRecords(lines []string) []*Orf {
 				continue
 			}
 
-			orf := &Orf{
+			orf := Orf{
 				Time:           t,
 				Action:         ifReject(splitString[4]),
 				FilteringPoint: filterPoint(splitString[5]),
@@ -238,12 +238,12 @@ func (s *Service) createOrfRecords(lines []string) []*Orf {
 	return result
 }
 
-func (s *Service) appendRecord(orf *Orf, result *[]*Orf) {
+func (s *Service) appendRecord(orf Orf, result *[]*Orf) {
 	orf.Hash()
-	if err := s.addRecordToMaps(orf); err != nil {
+	if err := s.addRecordToMaps(&orf); err != nil {
 		return
 	}
-	*result = append(*result, orf)
+	*result = append(*result, &orf)
 }
 
 func (s *Service) addRecordToMaps(orf *Orf) error {
