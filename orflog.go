@@ -21,12 +21,12 @@ type Service struct {
 
 	logMapAll struct {
 		sync.RWMutex
-		m map[string]Orf
+		m map[string]*Orf
 	}
 
 	logMapOld struct {
 		sync.RWMutex
-		m map[string]Orf
+		m map[string]*Orf
 	}
 
 	newLogCh    chan Orf
@@ -78,8 +78,8 @@ func NewService(opts Opts) *Service {
 
 	res.newLogCh = make(chan Orf)
 	res.removeLogCh = make(chan Orf)
-	res.logMapAll.m = make(map[string]Orf)
-	res.logMapOld.m = make(map[string]Orf)
+	res.logMapAll.m = make(map[string]*Orf)
+	res.logMapOld.m = make(map[string]*Orf)
 
 	res.timeStart = time.Now().AddDate(-res.TimeRange.Years, -res.TimeRange.Months, -res.TimeRange.Days)
 
@@ -103,7 +103,7 @@ func (s *Service) Run(ctx context.Context) {
 			allStrings := s.getAllStringsFromLogFiles(logFiles)
 			log.Printf("allStrings: %d", len(allStrings))
 
-			s.logMapOld.m = make(map[string]Orf)
+			s.logMapOld.m = make(map[string]*Orf)
 
 			orfs := s.createOrfRecords(allStrings)
 			log.Printf("orfs: %d", len(orfs))
@@ -111,7 +111,7 @@ func (s *Service) Run(ctx context.Context) {
 			s.removeOldRecords()
 
 			for _, orf := range orfs {
-				s.newLogCh <- orf
+				s.newLogCh <- *orf
 			}
 
 			s.timeStart = time.Now().Add(-24 * time.Hour)
@@ -121,14 +121,14 @@ func (s *Service) Run(ctx context.Context) {
 }
 
 // GetLastRecords from last program start
-func (s *Service) GetLastRecords() []Orf {
+func (s *Service) GetLastRecords() []*Orf {
 	logFiles := s.getLastModifiedLogFiles()
 	log.Printf("logFiles: %d", len(logFiles))
 
 	allStrings := s.getAllStringsFromLogFiles(logFiles)
 	log.Printf("allStrings: %d", len(allStrings))
 
-	s.logMapOld.m = make(map[string]Orf)
+	s.logMapOld.m = make(map[string]*Orf)
 
 	orfs := s.createOrfRecords(allStrings)
 	log.Printf("orfs: %d", len(orfs))
@@ -188,8 +188,8 @@ func (s *Service) getAllStringsFromLogFiles(fileNames []string) []string {
 	return result
 }
 
-func (s *Service) createOrfRecords(lines []string) []Orf {
-	result := make([]Orf, 0)
+func (s *Service) createOrfRecords(lines []string) []*Orf {
+	result := make([]*Orf, 0)
 	for _, line := range lines {
 		if strings.Contains(line, s.OrfLine) {
 			splitString := strings.Split(line, " ")
@@ -211,7 +211,7 @@ func (s *Service) createOrfRecords(lines []string) []Orf {
 				continue
 			}
 
-			orf := Orf{
+			orf := &Orf{
 				Time:           t,
 				Action:         ifReject(splitString[4]),
 				FilteringPoint: filterPoint(splitString[5]),
@@ -238,7 +238,7 @@ func (s *Service) createOrfRecords(lines []string) []Orf {
 	return result
 }
 
-func (s *Service) appendRecord(orf Orf, result *[]Orf) {
+func (s *Service) appendRecord(orf *Orf, result *[]*Orf) {
 	orf.Hash()
 	if err := s.addRecordToMaps(orf); err != nil {
 		return
@@ -246,7 +246,7 @@ func (s *Service) appendRecord(orf Orf, result *[]Orf) {
 	*result = append(*result, orf)
 }
 
-func (s *Service) addRecordToMaps(orf Orf) error {
+func (s *Service) addRecordToMaps(orf *Orf) error {
 	if orf.Time.Before(s.timeStart) {
 		s.logMapOld.Lock()
 		s.logMapOld.m[orf.HashString] = orf
