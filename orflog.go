@@ -93,7 +93,7 @@ func (s *Service) Run(ctx context.Context) {
 		case <-ctx.Done():
 			<-ctx.Done()
 			log.Printf("[WARN] init terminate service")
-			s.closeChannels()
+			s.CloseChannels()
 			log.Printf("[WARN] service terminated")
 			return
 		default:
@@ -144,7 +144,7 @@ func (s *Service) Channel() (new <-chan Orf) {
 	return s.newLogCh
 }
 
-func (s *Service) closeChannels() {
+func (s *Service) CloseChannels() {
 	close(s.newLogCh)
 	close(s.removeLogCh)
 }
