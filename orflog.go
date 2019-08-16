@@ -26,7 +26,7 @@ type Service struct {
 
 	logMapOld struct {
 		sync.RWMutex
-		m map[string]*Orf
+		m map[string]interface{}
 	}
 
 	newLogCh    chan Orf
@@ -79,7 +79,7 @@ func NewService(opts Opts) *Service {
 	res.newLogCh = make(chan Orf)
 	res.removeLogCh = make(chan Orf)
 	res.logMapAll.m = make(map[string]*Orf)
-	res.logMapOld.m = make(map[string]*Orf)
+	res.logMapOld.m = make(map[string]interface{})
 
 	res.timeStart = time.Now().AddDate(-res.TimeRange.Years, -res.TimeRange.Months, -res.TimeRange.Days)
 
@@ -103,7 +103,7 @@ func (s *Service) Run(ctx context.Context) {
 			allStrings := s.getAllStringsFromLogFiles(logFiles)
 			log.Printf("allStrings: %d", len(allStrings))
 
-			s.logMapOld.m = make(map[string]*Orf)
+			s.logMapOld.m = make(map[string]interface{})
 
 			orfs := s.createOrfRecords(allStrings)
 			log.Printf("orfs: %d", len(orfs))
@@ -128,7 +128,7 @@ func (s *Service) GetLastRecords() []*Orf {
 	allStrings := s.getAllStringsFromLogFiles(logFiles)
 	log.Printf("allStrings: %d", len(allStrings))
 
-	s.logMapOld.m = make(map[string]*Orf)
+	s.logMapOld.m = make(map[string]interface{})
 
 	orfs := s.createOrfRecords(allStrings)
 	log.Printf("orfs: %d", len(orfs))
@@ -249,7 +249,7 @@ func (s *Service) appendRecord(orf *Orf, result *[]*Orf) {
 func (s *Service) addRecordToMaps(orf *Orf) error {
 	if orf.Time.Before(s.timeStart) {
 		s.logMapOld.Lock()
-		s.logMapOld.m[orf.HashString] = orf
+		s.logMapOld.m[orf.HashString] = nil
 		s.logMapOld.Unlock()
 		return errors.New("record time before needed time")
 	}
