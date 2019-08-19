@@ -21,7 +21,7 @@ type Service struct {
 
 	logMapAll struct {
 		sync.RWMutex
-		m map[string]*Orf
+		m map[string]interface{}
 	}
 
 	logMapOld struct {
@@ -78,7 +78,7 @@ func NewService(opts Opts) *Service {
 
 	res.newLogCh = make(chan Orf)
 	res.removeLogCh = make(chan Orf)
-	res.logMapAll.m = make(map[string]*Orf)
+	res.logMapAll.m = make(map[string]interface{})
 	res.logMapOld.m = make(map[string]interface{})
 
 	res.timeStart = time.Now().AddDate(-res.TimeRange.Years, -res.TimeRange.Months, -res.TimeRange.Days)
@@ -263,7 +263,7 @@ func (s *Service) addRecordToMaps(orf *Orf) error {
 	}
 
 	s.logMapAll.Lock()
-	s.logMapAll.m[orf.HashString] = orf
+	s.logMapAll.m[orf.HashString] = nil
 	s.logMapAll.Unlock()
 
 	return nil
